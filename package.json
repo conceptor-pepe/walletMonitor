@@ -1,0 +1,37 @@
+{
+  "name": "telBot",
+  "version": "0.0.1",
+  "type": "commonjs",
+  "description": "craw binnance for coin list.",
+  "dependencies": {
+    "@apify/tsconfig": "^0.1.0",
+    "@solana/web3.js": "^1.98.0",
+    "moment-timezone": "^0.5.46",
+    "tdl": "^7.4.1",
+    "tdl-tdlib-addon": "^1.2.2",
+    "telegraf": "^4.16.3",
+    "telegram": "^2.17.4",
+    "ts-md5": "^1.2.11",
+    "typeorm": "0.2.12",
+    "wget": "^0.0.1",
+    "wget-improved": "^3.3.1",
+    "winston": "^3.17.0",
+    "ws": "^8.17.0"
+  },
+  "devDependencies": {
+    "@types/needle": "^2.5.3",
+    "@types/node-telegram-bot-api": "^0.61.11",
+    "@types/uuid": "^8.3.4",
+    "chai": "^4.3.6",
+    "ts-node": "^10.8.0",
+    "typescript": "^4.7.3"
+  },
+  "scripts": {
+    "start": "npm run start:dev",
+    "build": "tsc --outDir ./dist",
+    "test": "mocha",
+    "pkg": "tsc && babel dist -d bin_dist/ && pkg . --compress GZip --out-path=bin/ "
+  },
+  "author": "It's not you it's me",
+  "license": "ISC"
+}

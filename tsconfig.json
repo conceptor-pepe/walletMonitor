@@ -1,0 +1,23 @@
+{
+    "extends": "@apify/tsconfig",
+    "compilerOptions": {
+        "module": "commonjs",
+        "target": "ES2022",
+        "outDir": "dist",
+        "noUnusedLocals": false,
+        "allowJs": true,
+        "skipLibCheck": true,
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators": true,
+        "esModuleInterop": true,
+        "lib": [
+            "ESNext",
+            "es5",
+            "es6"
+        ],
+    },
+    "include": [
+        "./src/**/*",
+        "./src/*"
+    ]
+}
