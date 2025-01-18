@@ -1,4 +1,5 @@
 import { logger } from './logger'
+import { sendMessageToTelegram } from './msg'
 
 
 const { Client, Message } = require('tdl')
@@ -45,21 +46,34 @@ async function handleUpdate(update: any) {
       // 检查是否是用户发送的消息
       if (message.sender_id._ === 'messageSenderUser') {
         const userId = message.sender_id.user_id
-
         // 根据userId获取用户信息
         const userInfo = await client.invoke({
           _: 'getUser',
           user_id: userId
         })
 
-        // 获取用户名,如果没有username则使用first_name
-        const userName = userInfo.username || userInfo.first_name || '未知用户'
+        logger.info(`firstName:${userInfo.first_name} Id:${userId} text:${message.content.text?.text}`)
 
         // 检查消息内容是否包含text字段
-        const text = message.content.text?.text || '无文本内容'
+        const text = message.content.text?.text
+        if (text == undefined || text == null) {
+          return
+        }
 
-        // 打印用户名和消息文本
-        logger.info(`用户名: ${userName} (ID: ${userId}) 消息内容: ${text}`)
+        // // if (userInfo.username?.includes("Alex") || userInfo.username?.includes('Serpent')) {
+        // //   // 打印用户名和消息文本
+        // logger.info(`firstName:${userInfo.first_name} Id:${userId} text:${message.content.text?.text}`)
+        // // }
+
+        // await getUserIdByUsername('AlexWongHK_bot')
+        // await getUserIdByUsername('lurker696_bot')
+
+        //D哥、alex、lurker696
+        if (userId == 517292541 || userId == 5133526766 || userId == 7734561108) {
+          logger.info(`${userInfo.first_name} text:${text}`)
+          // 发送消息到指定群组
+          await sendMessageToTelegram(`【${userInfo.first_name}】\n${text}`)
+        }
       }
     }
 
@@ -78,6 +92,30 @@ function handleError(err: any) {
 function handleDestroy() {
   logger.info('客户端已断开连接')
 }
+
+// 根据用户名获取用户ID
+async function getUserIdByUsername(username: string) {
+  try {
+    // 使用searchPublicChat方法搜索公开聊天
+    const chat = await client.invoke({
+      _: 'searchPublicChat',
+      username: username
+    });
+
+    // 检查搜索结果是否为用户
+    if (chat.type._ === 'chatTypePrivate') {
+      logger.info(`找到的用户ID:${chat.id} username:${username}`)
+      return chat.id; // 返回用户ID
+    } else {
+      logger.info(`找到的不是私人聊天类型:${chat.type._} username:${username}`)
+      return null;
+    }
+  } catch (err) {
+    logger.error('根据用户名获取用户ID失败:', err);
+    return null;
+  }
+}
+
 
 // 启动程序
 main().catch(err => {
