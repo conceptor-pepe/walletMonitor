@@ -1,5 +1,6 @@
+import { createDatabase, initDatabase } from './data'
 import { logger } from './logger'
-import { sendMessageToTelegram } from './msg'
+import { parseGongyueMessage, parseMasonMessage, sendMessageToTelegram } from './msg'
 
 
 const { Client } = require('tdl')
@@ -11,10 +12,15 @@ const client = new Client(new TDLib(), {
   apiHash: '01fca0d8f9b8794089ebc04289897feb', // Telegram API Hash
 })
 
+export let db: any
 
 // 主函数
 async function main() {
   try {
+    // 创建数据库连接
+    db = createDatabase('./vip_tokens.db');
+    await initDatabase(db);
+
     await client.login() // 登录Telegram账号
 
     await getAllGroupChats()
@@ -24,9 +30,6 @@ async function main() {
     client.on('error', handleError)
     client.on('destroy', handleDestroy)
 
-    // 获取1000xGEM NFT Group的chat_id
-    // const targetChatId = await getChatId('1000xGEM NFT Group')
-    // logger.info(`==================开始监控1000xGEM NFT Group(${targetChatId})======================`)
   } catch (err) {
     logger.error('error for process main:', err)
   }
@@ -46,37 +49,13 @@ async function handleUpdate(update: any) {
     // 检查是否是目标群组的消息--旗开得胜尊享VIP群
     if (message.chat_id === -1002349291613) {
       // 检查是否是用户发送的消息
-      if (message.sender_id._ === 'messageSenderUser') {
-        const userId = message.sender_id.user_id
-        // 根据userId获取用户信息
-        const userInfo = await client.invoke({
-          _: 'getUser',
-          user_id: userId
-        })
+      await parseGongyueMessage(message)
+    }
 
-        logger.info(`firstName:${userInfo.first_name} Id:${userId} text:${message.content.text?.text}`)
-
-        // 检查消息内容是否包含text字段
-        const text = message.content.text?.text
-        if (text == undefined || text == null) {
-          return
-        }
-
-        // // if (userInfo.username?.includes("Alex") || userInfo.username?.includes('Serpent')) {
-        // //   // 打印用户名和消息文本
-        // logger.info(`firstName:${userInfo.first_name} Id:${userId} text:${message.content.text?.text}`)
-        // // }
-
-        // await getUserIdByUsername('AlexWongHK_bot')
-        // await getUserIdByUsername('lurker696_bot')
-
-        //D哥、alex、lurker696
-        if (userId == 517292541 || userId == 5133526766 || userId == 7734561108) {
-          logger.info(`${userInfo.first_name} text:${text}`)
-          // 发送消息到指定群组
-          await sendMessageToTelegram(`【${userInfo.first_name}】\n${text}`)
-        }
-      }
+    //Mason的Debot地址报警
+    if (message.chat_id === -1002497895796) {
+      logger.info(`${JSON.stringify(message)}`)
+      await parseMasonMessage(message)
     }
 
   } catch (err) {
@@ -95,28 +74,6 @@ function handleDestroy() {
   logger.info('client is disconnected')
 }
 
-// 根据用户名获取用户ID
-async function getUserIdByUsername(username: string) {
-  try {
-    // 使用searchPublicChat方法搜索公开聊天
-    const chat = await client.invoke({
-      _: 'searchPublicChat',
-      username: username
-    });
-
-    // 检查搜索结果是否为用户
-    if (chat.type._ === 'chatTypePrivate') {
-      logger.info(`find user id:${chat.id} username:${username}`)
-      return chat.id; // 返回用户ID
-    } else {
-      logger.info(`find not private chat type:${chat.type._} username:${username}`)
-      return null;
-    }
-  } catch (err) {
-    logger.error('error for process getUserIdByUsername:', err);
-    return null;
-  }
-}
 
 
 // 启动程序
