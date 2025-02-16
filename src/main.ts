@@ -43,8 +43,8 @@ async function handleUpdate(update: any) {
     // 获取消息内容
     const message = update.last_message
 
-    // 检查是否是目标群组的消息
-    if (message.chat_id === -1002335179695) {
+    // 检查是否是目标群组的消息--旗开得胜尊享VIP群
+    if (message.chat_id === -1002349291613) {
       // 检查是否是用户发送的消息
       if (message.sender_id._ === 'messageSenderUser') {
         const userId = message.sender_id.user_id
