@@ -10,7 +10,7 @@ const axios = require('axios')
  * @param formattedText 要发送的格式化文本内容(支持HTML或Markdown格式)
  * @param chatId 目标聊天ID,默认为指定群组
  */
-export async function sendMessageToTelegram(formattedText: string, chatId: string = '-4552212633') {
+export async function sendMessageToTelegram(formattedText: string, chatId: string = '-4653203065') {
   let axiosInstance = axios
 
   // Telegram Bot API URL
@@ -97,7 +97,7 @@ export async function parseGongyueMessage(message: any) {
   // 将结果添加到数据库
   await addToken(db, result);
 
-  sendMessageToTelegram(`${text}`)
+  // sendMessageToTelegram(`${text}`)
   return result;
 
 }
@@ -138,20 +138,19 @@ function applyValueToResult(key: string, value: string, result: VipTokenInfo): v
 }
 
 //解析mason群的message ca地址
-export function extractMasonCAAddress(message: any) {
-  const text = message.content.text?.text
-  if (text == undefined || text == null || !text.includes('ca地址')) {
+export function extractMasonCAAddress(text: any) {
+  if (text == undefined || text == null || !text.includes('CA')) {
     return
   }
 
   // 方法1：直接匹配CA行
-  const caLineMatch = message.match(/🔥CA:\s*([A-Za-z0-9]+)/);
+  const caLineMatch = text.match(/🔥CA:\s*([A-Za-z0-9]+)/);
   if (caLineMatch) {
     return caLineMatch[1];
   }
 
   // 方法2：从URL中提取（备用方案）
-  const urlMatch = message.match(/token\/solana\/\d+_([A-Za-z0-9]+)/);
+  const urlMatch = text.match(/token\/solana\/\d+_([A-Za-z0-9]+)/);
   return urlMatch ? urlMatch[1] : null;
 }
 
@@ -162,7 +161,7 @@ export interface MasonWarningInfo {
 
 export async function parseMasonMessage(message: any) {
   const text = message.content.text?.text
-  if (text == undefined || text == null || !text.includes('ca地址')) {
+  if (text == undefined || text == null || !text.includes('钱包列表')) {
     return
   }
 
@@ -170,9 +169,10 @@ export async function parseMasonMessage(message: any) {
     address: '',
     walletInfo: []
   }
-  const caAddress = extractMasonCAAddress(message)
+  const caAddress = extractMasonCAAddress(text)
+  const walletInfo = extractMasonWalletInfo(text)
 
-  logger.info(`caAddress: ${caAddress}`)
+  logger.info(`caAddress: ${caAddress} walletInfo: ${JSON.stringify(walletInfo)}`)
 
   //查询token是否已经在数据库
   const tokenInfo = await getToken(db, caAddress)
@@ -181,7 +181,7 @@ export async function parseMasonMessage(message: any) {
     return null
   }
 
-  warningInfo.walletInfo = extractMasonWalletInfo(message)
+  warningInfo.walletInfo = walletInfo
   warningInfo.address = caAddress
 
   // 发送消息到Telegram
@@ -190,10 +190,11 @@ export async function parseMasonMessage(message: any) {
   return warningInfo
 }
 
-function extractMasonWalletInfo(message: any) {
+function extractMasonWalletInfo(text: any) {
   const regex = /├钱包:.*?\((MC:[^)]+\))/g;
-  const matches = message.match(regex);
+  const matches = text.match(regex);
   if (matches) {
+
     return matches;
   }
   return [];
@@ -212,7 +213,7 @@ function formatAlertMessage(tokenInfo: any, masonWarning: MasonWarningInfo) {
     `▫️ 老鼠仓占比：${tokenInfo.mouseRatio}%  `
   ].join('\n');
 
-  let walletInfo = '\n💸 **大额买入监控**' + masonWarning.walletInfo.join('\n')
+  let walletInfo = '\n💸 **大额买入监控**\n' + masonWarning.walletInfo.join('\n')
   // 链接区块
   const linksSection = [
     '\n🔗 **相关链接**',

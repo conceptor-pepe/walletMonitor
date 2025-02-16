@@ -54,7 +54,7 @@ async function handleUpdate(update: any) {
 
     //Mason的Debot地址报警
     if (message.chat_id === -1002497895796) {
-      logger.info(`${JSON.stringify(message)}`)
+      // logger.info(`${JSON.stringify(message)}`)
       await parseMasonMessage(message)
     }
 
