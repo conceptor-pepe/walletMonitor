@@ -2,13 +2,13 @@ import { logger } from './logger'
 import { sendMessageToTelegram } from './msg'
 
 
-const { Client, Message } = require('tdl')
+const { Client } = require('tdl')
 const { TDLib } = require('tdl-tdlib-addon')
 
 // 创建TDLib客户端实例
 const client = new Client(new TDLib(), {
-  apiId: 29750444, // Telegram API ID
-  apiHash: '2a65294b8d87d74270e91ccaa52ae37e', // Telegram API Hash
+  apiId: 20870585, // Telegram API ID
+  apiHash: '01fca0d8f9b8794089ebc04289897feb', // Telegram API Hash
 })
 
 
@@ -16,6 +16,8 @@ const client = new Client(new TDLib(), {
 async function main() {
   try {
     await client.login() // 登录Telegram账号
+
+    await getAllGroupChats()
 
     // 监听消息更新
     client.on('update', handleUpdate)
@@ -26,7 +28,7 @@ async function main() {
     // const targetChatId = await getChatId('1000xGEM NFT Group')
     // logger.info(`==================开始监控1000xGEM NFT Group(${targetChatId})======================`)
   } catch (err) {
-    logger.error('启动程序时发生错误:', err)
+    logger.error('error for process main:', err)
   }
 }
 
@@ -78,19 +80,19 @@ async function handleUpdate(update: any) {
     }
 
   } catch (err) {
-    logger.error('处理消息更新失败:', err)
+    logger.error('error for process handleUpdate:', err)
     return
   }
 }
 
 // 错误处理函数
 function handleError(err: any) {
-  logger.error('发生错误:', JSON.stringify(err, null, 2))
+  logger.error('error for process handleError:', JSON.stringify(err, null, 2))
 }
 
 // 销毁事件处理函数
 function handleDestroy() {
-  logger.info('客户端已断开连接')
+  logger.info('client is disconnected')
 }
 
 // 根据用户名获取用户ID
@@ -104,14 +106,14 @@ async function getUserIdByUsername(username: string) {
 
     // 检查搜索结果是否为用户
     if (chat.type._ === 'chatTypePrivate') {
-      logger.info(`找到的用户ID:${chat.id} username:${username}`)
+      logger.info(`find user id:${chat.id} username:${username}`)
       return chat.id; // 返回用户ID
     } else {
-      logger.info(`找到的不是私人聊天类型:${chat.type._} username:${username}`)
+      logger.info(`find not private chat type:${chat.type._} username:${username}`)
       return null;
     }
   } catch (err) {
-    logger.error('根据用户名获取用户ID失败:', err);
+    logger.error('error for process getUserIdByUsername:', err);
     return null;
   }
 }
@@ -121,3 +123,38 @@ async function getUserIdByUsername(username: string) {
 main().catch(err => {
   logger.error('未处理的错误:', err);
 });
+
+
+// 获取所有群组聊天
+async function getAllGroupChats() {
+  try {
+    const result = await client.invoke({
+      _: 'getChats',
+      chatList: { _: 'chatListMain' },
+      limit: 100  // 每次获取的数量
+    });
+
+    // 打印基础信息
+    logger.info(`find ${result.chat_ids.length} chats`);
+
+    // 获取每个聊天的详细信息
+    for (const chatId of result.chat_ids) {
+      const chat = await client.invoke({
+        _: 'getChat',
+        chat_id: chatId
+      });
+
+      // 筛选群组类型（普通群组/超级群组）
+      if (chat.type._ === 'chatTypeSupergroup' || chat.type._ === 'chatTypeGroup') {
+        logger.info(`chat id: ${chat.id} | title: ${chat.title} | type: ${chat.type._}`);
+      }
+    }
+
+    // 如果需要获取更多（分页处理）：
+    if (result.total_count > result.chat_ids.length) {
+      logger.info('notice: there are more chats need to be fetched');
+    }
+  } catch (err) {
+    logger.error('error for process getAllGroupChats:', err);
+  }
+}
