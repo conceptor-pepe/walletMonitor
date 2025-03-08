@@ -1,0 +1,11 @@
+export const HELIUS_API_KEY = '6883a299-5435-4038-bb3f-336608b910a1'
+export const RPC_ENDPOINT = 'https://mainnet.helius-rpc.com/?api-key=6883a299-5435-4038-bb3f-336608b910a1'
+export const SUPABASE_URL = 'https://ivssalgbwtpxdpofxqjb.supabase.co'
+export const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2c3NhbGdid3RweGRwb2Z4cWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEyMzIzMDgsImV4cCI6MjA1NjgwODMwOH0.k-q_eB13woujO-eZD89JHKux5DEwkDTllMSUlGjYydQ'
+export const TELEGRAM_TOKEN = '5468947096:AAHjqcA8IPi-4y6keSxKueNIaPHfWNL-6wM'
+export const TELEGRAM_CHANNEL_NAME = "@+Z6neIPugsuU1Yjll"
+export const TELEGRAM_CHANNEL_ID = -1002317983134
+export const SHYFT_API_KEY = 'oohsREo615uRH_77'
+export const RAPID_API_KEY = '86548a3619msh5467adf39d7239cp13eb12jsn4951922ff638'
+export const DEEPSEEK_API_KEY = 'sk-12c0b6bba1b14390b9664ce35929b7ab'
+export const WEBHOOK_URL = 'http://155.138.207.177:3000/api/webhook'
