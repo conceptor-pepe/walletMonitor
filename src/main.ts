@@ -1,117 +1,51 @@
-import { createDatabase, initDatabase } from './data'
-import { logger } from './logger'
-import { parseGongyueMessage, parseMasonMessage, sendMessageToTelegram } from './msg'
+// 导入必要的依赖
+import express from 'express';
+import { setupSwapWebhook } from './scripts/heliusSetup';
+
+// 创建 Express 应用
+const app = express();
+// 导入 startMonitor 函数
+import { handleWebhookRequest } from './utils/route';
+import { startMonitor } from './strategy/monitor';
 
 
-const { Client } = require('tdl')
-const { TDLib } = require('tdl-tdlib-addon')
+// 配置中间件
+app.use(express.json());
 
-// 创建TDLib客户端实例
-const client = new Client(new TDLib(), {
-  apiId: 20870585, // Telegram API ID
-  apiHash: '01fca0d8f9b8794089ebc04289897feb', // Telegram API Hash
-})
+// 设置 webhook 路由
+app.post('/api/webhook', handleWebhookRequest);
 
-export let db: any
+// 设置服务器端口
+const PORT = process.env.PORT || 3000;
 
-// 主函数
-async function main() {
+// 获取时间戳函数
+const getTimeStamp = () => {
+  return new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+};
+
+// 启动服务器并设置 webhook
+async function startServer() {
   try {
-    // 创建数据库连接
-    db = createDatabase('./vip_tokens.db');
-    await initDatabase(db);
+    // 设置 Helius webhook
+    await setupSwapWebhook();
+    console.log('Webhook setup completed');
 
-    await client.login() // 登录Telegram账号
-
-    await getAllGroupChats()
-
-    // 监听消息更新
-    client.on('update', handleUpdate)
-    client.on('error', handleError)
-    client.on('destroy', handleDestroy)
-
-  } catch (err) {
-    logger.error('error for process main:', err)
-  }
-}
-
-// 处理消息更新
-async function handleUpdate(update: any) {
-  try {
-    // 检查是否有消息
-    if (!update.last_message) {
-      return
-    }
-
-    // 获取消息内容
-    const message = update.last_message
-
-    // 检查是否是目标群组的消息--旗开得胜尊享VIP群
-    if (message.chat_id === -1002349291613) {
-      // 检查是否是用户发送的消息
-      await parseGongyueMessage(message)
-    }
-
-    //Mason的Debot地址报警
-    if (message.chat_id === -1002497895796) {
-      // logger.info(`${JSON.stringify(message)}`)
-      await parseMasonMessage(message)
-    }
-
-  } catch (err) {
-    logger.error('error for process handleUpdate:', err)
-    return
-  }
-}
-
-// 错误处理函数
-function handleError(err: any) {
-  logger.error('error for process handleError:', JSON.stringify(err, null, 2))
-}
-
-// 销毁事件处理函数
-function handleDestroy() {
-  logger.info('client is disconnected')
-}
-
-
-
-// 启动程序
-main().catch(err => {
-  logger.error('未处理的错误:', err);
-});
-
-
-// 获取所有群组聊天
-async function getAllGroupChats() {
-  try {
-    const result = await client.invoke({
-      _: 'getChats',
-      chatList: { _: 'chatListMain' },
-      limit: 100  // 每次获取的数量
+    // 启动服务器
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
     });
 
-    // 打印基础信息
-    logger.info(`find ${result.chat_ids.length} chats`);
+    // 启动监控
+    await startMonitor();
+    console.log('Monitor started successfully');
 
-    // 获取每个聊天的详细信息
-    for (const chatId of result.chat_ids) {
-      const chat = await client.invoke({
-        _: 'getChat',
-        chat_id: chatId
-      });
-
-      // 筛选群组类型（普通群组/超级群组）
-      if (chat.type._ === 'chatTypeSupergroup' || chat.type._ === 'chatTypeGroup') {
-        logger.info(`chat id: ${chat.id} | title: ${chat.title} | type: ${chat.type._}`);
-      }
-    }
-
-    // 如果需要获取更多（分页处理）：
-    if (result.total_count > result.chat_ids.length) {
-      logger.info('notice: there are more chats need to be fetched');
-    }
   } catch (err) {
-    logger.error('error for process getAllGroupChats:', err);
+    console.error('Server startup failed:', err);
+    process.exit(1);
   }
 }
+
+// 启动服务器
+startServer();
+
+
