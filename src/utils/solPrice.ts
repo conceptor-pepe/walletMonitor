@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { logger } from './logger';
 
 /**
  * SOL 价格缓存类
@@ -49,11 +50,11 @@ class SolPriceCache {
       // console.log('Fetched new SOL price:', this.price);
       return this.price;
     } catch (error) {
-      console.error('获取 SOL 价格失败:', error);
+      logger.error('获取 SOL 价格失败:', error);
 
       // API 调用失败时，如果有缓存则返回缓存的价格
       if (this.price !== null) {
-        console.log('API 调用失败，返回缓存价格:', this.price);
+        logger.info('API 调用失败，返回缓存价格:', this.price);
         return this.price;
       }
 

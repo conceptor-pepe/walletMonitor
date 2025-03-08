@@ -1,4 +1,5 @@
 import BigNumber from 'bignumber.js';  // 改用 bignumber.js 库
+import { logger } from './logger';
 
 // 定义 SOL 代币的地址常量
 export const SOL_ADDRESS = 'So11111111111111111111111111111111111111112';
@@ -82,6 +83,6 @@ export function processSwapData(webhookData: any): SwapData {
   processedData.timestamp = webhookData.timestamp;    // 交易时间戳
   processedData.description = webhookData.description; // 交易描述
 
-  console.log(`processedData is:${JSON.stringify(processedData)}`)
+  logger.info(`processedData is:${JSON.stringify(processedData)}`)
   return processedData;
 }

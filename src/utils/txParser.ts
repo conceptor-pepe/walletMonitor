@@ -1,6 +1,7 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
 import { SHYFT_API_KEY } from './config';
+import { logger } from './logger';
 
 dotenv.config();
 
@@ -19,7 +20,7 @@ export async function solParser(signature: any) {
       'x-api-key': SHYFT_API_KEY  // 使用 API 密钥进行认证
     }
   }).catch(error => {
-    console.error('Error fetching transaction:', error);
+    logger.error('Error fetching transaction:', error);
     return { data: null };
   });
 
@@ -31,7 +32,7 @@ export async function solParser(signature: any) {
   // 检查是否成功且为 SWAP 类型交易
   if (response.data.success && response.data.result) {
     const result = response.data.result;
-    console.log(JSON.stringify(result, null, 2));
+    logger.info(JSON.stringify(result, null, 2));
 
     // 查找包含代币交换信息的动作
     const swapAction = result.actions.find((action: any) =>

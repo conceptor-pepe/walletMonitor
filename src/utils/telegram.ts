@@ -1,6 +1,7 @@
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 import { TELEGRAM_CHANNEL_ID, TELEGRAM_TOKEN } from './config';
+import { logger } from './logger';
 
 dotenv.config();
 
@@ -34,7 +35,7 @@ export async function sendTelegramMessage(message: any, replyToMessageId: number
 
     return data;
   } catch (error) {
-    console.error('Error sending Telegram message:', error);
+    logger.error('Error sending Telegram message:', error);
     throw error;
   }
 }

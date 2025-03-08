@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import { processSwapData } from './swapProcessor';
 import { solParser } from './txParser';
 import { HELIUS_API_KEY, SUPABASE_KEY, SUPABASE_URL } from './config';
+import { addTransaction } from './sqlite';
+import { logger } from './logger';
 
 // 初始化 Supabase 客户端
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -17,8 +19,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
  */
 export const handleWebhookRequest = async (req: any, res: any) => {
   try {
-
-    console.log('=====================recv handleWebhookRequest ================')
 
     // 验证请求方法
     if (req.method !== 'POST') {
@@ -37,7 +37,7 @@ export const handleWebhookRequest = async (req: any, res: any) => {
     // 返回成功响应
     return res.status(200).json({ message: 'Webhook processed successfully' });
   } catch (error) {
-    console.error('Webhook processing error:', error);
+    logger.error('Webhook processing error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -50,7 +50,7 @@ async function processWebhookData(data: any) {
   // 获取并检查交易数据
   const txData = Array.isArray(data) ? data[0] : data;
   if (!txData) {
-    console.error('Empty transaction data received', txData);
+    logger.error('Empty transaction data received', txData);
     throw new Error('Empty data received');
   }
 
@@ -65,7 +65,7 @@ async function processWebhookData(data: any) {
     // 使用 Solana 解析器处理交易签名
     processedData = await solParser(txData.signature);
     if (!processedData) {
-      console.error('Failed to parse tx:', txData.signature);
+      logger.error('Failed to parse tx:', txData.signature);
       throw new Error(`Parse failed for signature: ${txData.signature}`);
     }
   } else {
@@ -73,18 +73,17 @@ async function processWebhookData(data: any) {
     throw new Error('No swap data found');
   }
 
-  // 将处理后的数据存储到 Supabase 数据库
-  const { error } = await supabase.from('txs').insert([{
-    ...processedData,
-    signature: txData.signature
-  }]);
+  // 将处理后的数据存储到 SQLite 数据库
+  try {
+    await addTransaction({
+      ...processedData,
+      signature: txData.signature
+    });
 
-  // 处理数据库插入错误
-  if (error) {
-    console.error('Error inserting into Supabase:', error);
+    // 记录成功信息
+    logger.info('Successfully processed and stored with parser:', txData.events?.swap ? 'helius' : 'shyft');
+  } catch (error) {
+    logger.error('Error inserting into SQLite:', error);
     throw error;
   }
-
-  // 记录成功信息
-  console.log('Successfully processed and stored with parser:', txData.events?.swap ? 'helius' : 'shyft');
 }

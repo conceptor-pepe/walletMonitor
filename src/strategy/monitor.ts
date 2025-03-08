@@ -1,30 +1,22 @@
 import { DexScreener } from '../utils/dexscreener.js';
-import { createClient } from '@supabase/supabase-js';
 import { SOL_ADDRESS, USDC_ADDRESS } from '../utils/swapProcessor';
 import { sendTelegramMessage } from '../utils/telegram';
 import { analyzeTokenTxs } from '../utils/txsAnalyzer';
 import { createMsg } from './messageTemplate';
 import { sendSumMessage } from '../utils/aiSummary';
+import { TELEGRAM_CHANNEL_ID } from '../utils/config';
+import { getNewTransactions, getOtherWalletTransactions } from '../utils/sqlite';
 import dotenv from 'dotenv';
-import { SUPABASE_KEY, SUPABASE_URL, TELEGRAM_CHANNEL_ID } from '../utils/config';
 
 dotenv.config();
-const supabaseUrl = SUPABASE_URL;
-const supabaseKey = SUPABASE_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing Supabase credentials');
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-// Configuration constants
-const MAX_AGE_DAYS = 2;
-const MIN_MARKET_CAP = 100000; // 100k
 
 const getTimeStamp = () => {
   return new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
 };
+
+// Configuration constants
+const MAX_AGE_DAYS = 2;
+const MIN_MARKET_CAP = 100000; // 100k
 
 // Check if token meets filtering criteria
 /**
@@ -62,26 +54,27 @@ async function checkFilter(tokenAddress: string) {
     console.error(`[${getTimeStamp()}] Error checking token ${tokenAddress}:`, error);
   }
 }
+
 /**
- * 监控交易表的插入事件，分析多钱包买入行为
+ * 监控SQLite交易表的变化，分析多钱包买入行为
  * 主要功能:
- * 1. 监听新交易插入
- * 2. 分析是否有多个钱包在6小时内买入同一代币
+ * 1. 定期轮询SQLite数据库检查新交易
+ * 2. 分析是否有多个钱包在6小时内买入同一代币 //目前改为单个钱包就告警
  * 3. 符合条件时触发代币分析和消息推送
  */
 export async function startMonitor() {
-  supabase
-    .channel('txs_monitor')
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',      // 监听插入事件
-        schema: 'public',     // 公共模式
-        table: 'txs',         // 交易表
-      },
-      async (payload) => {
-        // 解析新交易数据
-        const newTx = payload.new;
+
+  // 记录上次检查的时间戳
+  let lastCheckTimestamp = Math.floor(Date.now() / 1000);
+
+  // 每5秒检查一次新交易
+  setInterval(async () => {
+    try {
+      // 查询新插入的交易记录
+      const newTxs = await getNewTransactions(lastCheckTimestamp);
+
+      // 处理每条新交易
+      for (const newTx of newTxs) {
         const tokenOutAddress = newTx.token_out_address;  // 买入的代币地址
         const currentAccount = newTx.account;             // 当前交易账户
         const currentTimestamp = newTx.timestamp;         // 交易时间戳
@@ -89,47 +82,40 @@ export async function startMonitor() {
         // 检查是否为代币买入交易(排除SOL和USDC)
         if (tokenOutAddress !== SOL_ADDRESS && tokenOutAddress !== USDC_ADDRESS) {
           // 计算6小时前的时间戳
-          const sixHoursAgo = new Date(currentTimestamp);
-          sixHoursAgo.setHours(sixHoursAgo.getHours() - 6);
-          const sixHoursAgoTimestamp = Math.floor(sixHoursAgo.getTime() / 1000);
+          const sixHoursAgo = Math.floor(currentTimestamp - 6 * 60 * 60);
 
           // 查询6小时内是否有其他钱包买入同一代币
-          const { data, error } = await supabase
-            .from('txs')
-            .select('*')
-            .eq('token_out_address', tokenOutAddress)    // 相同代币
-            .neq('account', currentAccount)              // 不同钱包
-            .gte('timestamp', sixHoursAgoTimestamp)      // 6小时内
-            .limit(1);                                   // 只需要确认存在性
-
-          // 处理查询错误
-          if (error) {
-            console.error(`[${getTimeStamp()}] Query error:`, error);
-            return;
-          }
+          const otherWalletTxs = await getOtherWalletTransactions(
+            tokenOutAddress,
+            currentAccount,
+            sixHoursAgo
+          );
 
           // 如果发现其他钱包的买入记录
-          if (data && data.length > 0) {
-            console.log(`[${getTimeStamp()}] Detected new multi-wallet transaction for token: ${tokenOutAddress}`);
+          if (otherWalletTxs.length >= 0) {
+            console.log(`[${getTimeStamp()}] 检测到多钱包交易代币: ${tokenOutAddress}`);
             // 触发代币分析和消息推送
             await checkFilter(tokenOutAddress);
           }
         }
       }
-    )
-    // 错误处理
-    // .on('error', (error: string, context: any, channel: any) => {
-    //   console.error(`[${getTimeStamp()}] Supabase realtime connection error:`, error, context, channel);
-    // })
-    // 订阅状态处理
-    .subscribe((status) => {
-      console.log(`[${getTimeStamp()}] Monitoring started... Subscription status:`, status);
-    })
+
+      // 更新最后检查时间戳
+      if (newTxs.length > 0) {
+        lastCheckTimestamp = Math.max(...newTxs.map((tx: any) => tx.timestamp));
+      }
+
+    } catch (error) {
+      console.error(`[${getTimeStamp()}] 监控程序错误:`, error);
+    }
+  }, 5000); // 5秒轮询间隔
+
+  console.log(`[${getTimeStamp()}] 交易监控已启动...`);
 }
 
-// // Start monitoring
+// 启动监控
 // startMonitor().catch(error => {
-//   console.error(`[${getTimeStamp()}] Monitor program error:`, error);
+//   console.error(`[${getTimeStamp()}] 监控程序启动错误:`, error);
 //   process.exit(1);
 // });
 

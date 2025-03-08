@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import dotenv from 'dotenv';
 import { getUserTimeline, searchTwitter } from './tweetApi';
 import { DEEPSEEK_API_KEY } from './config.js';
+import { logger } from './logger.js';
 
 dotenv.config();
 
@@ -58,7 +59,7 @@ async function sumTweets(tokenInfo: TokenInfo): Promise<SummaryResult | string |
 
       const timelineResult = await getUserTimeline(screenname);
       if (timelineResult) account_tweets = timelineResult as TimelineResult;
-      else console.log('Failed to fetch user tweets:', screenname);
+      else logger.info('Failed to fetch user tweets:', screenname);
     }
   }
 
@@ -66,7 +67,7 @@ async function sumTweets(tokenInfo: TokenInfo): Promise<SummaryResult | string |
   search_tweets = await searchTwitter(address) as SearchTweet[];
 
   if (!search_tweets?.length) {
-    console.log('No tweets found for address:', address);
+    logger.info('No tweets found for address:', address);
     return `No tweet data found for ${symbol}(${address}).`;
   }
 
@@ -79,7 +80,7 @@ async function sumTweets(tokenInfo: TokenInfo): Promise<SummaryResult | string |
   }
 
   if (!search_summary && !account_summary) {
-    console.log(`Unable to generate tweet analysis summary for ${symbol}.`);
+    logger.info(`Unable to generate tweet analysis summary for ${symbol}.`);
     return null;
   }
 
@@ -140,7 +141,7 @@ ${promptSuffix}`;
 
     return response.choices[0].message.content ?? "No summary generated.";
   } catch (error) {
-    console.error("Error generating Twitter summary:", error);
+    logger.error("Error generating Twitter summary:", error);
     return "Failed to generate summary due to an error.";
   }
 }
@@ -149,7 +150,7 @@ ${promptSuffix}`;
 export async function sendSumMessage(tokenInfo: TokenInfo, replyToMessageId: number) {
   const summaryResult = await sumTweets(tokenInfo);
   if (!summaryResult || typeof summaryResult === 'string') {
-    console.log(`Unable to get tweet summary for ${tokenInfo.symbol}`);
+    logger.info(`Unable to get tweet summary for ${tokenInfo.symbol}`);
     return;
   }
 

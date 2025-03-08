@@ -26,7 +26,9 @@
     "wget": "^0.0.1",
     "wget-improved": "^3.3.1",
     "winston": "^3.17.0",
-    "ws": "^8.17.0"
+    "ws": "^8.17.0",
+    "sqlite3": "^5.1.6",
+    "sqlite": "^5.0.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
@@ -40,7 +42,8 @@
   "scripts": {
     "start": "npm run start:dev",
     "build": "tsc --outDir ./dist",
-    "test": "mocha",
+    "test": "vitest",
+    "test:route": "vitest src/tests/route.test.ts",
     "pkg": "tsc && babel dist -d bin_dist/ && pkg . --compress GZip --out-path=bin/ "
   },
   "author": "It's not you it's me",

@@ -7,6 +7,7 @@ const app = express();
 // 导入 startMonitor 函数
 import { handleWebhookRequest } from './utils/route';
 import { startMonitor } from './strategy/monitor';
+import { initializeDB } from './utils/sqlite';
 
 
 // 配置中间件
@@ -23,8 +24,12 @@ const getTimeStamp = () => {
   return new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
 };
 
+
+
 // 启动服务器并设置 webhook
 async function startServer() {
+  await initializeDB()
+
   try {
     // 设置 Helius webhook
     await setupSwapWebhook();

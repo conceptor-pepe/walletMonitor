@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import axiosRetry from 'axios-retry';
 import { AxiosError } from 'axios';
 import { RAPID_API_KEY } from './config';
+import { logger } from './logger';
 
 // 加载环境变量
 dotenv.config();
@@ -46,18 +47,18 @@ export async function searchTwitter(query: any, searchType = 'Top') {
 
   // 发送请求并处理错误
   const response = await axios.request(options).catch(error => {
-    console.error('Twitter API Error:', error.message);
+    logger.error('Twitter API Error:', error.message);
     throw error;
   });
 
   // 验证响应数据
   if (!response || !response.data) {
-    console.error('Twitter API Search Error: No response data');
+    logger.error('Twitter API Search Error: No response data');
     return null;
   }
 
   if (!response.data?.timeline) {
-    console.error('Twitter API Search Error: No tweet data');
+    logger.error('Twitter API Search Error: No tweet data');
     return [];
   }
 
@@ -123,13 +124,13 @@ export async function getUserTimeline(screenname: string): Promise<TimelineResul
 
   // 发送请求并处理错误
   const response = await axios.request(options).catch(error => {
-    console.error('Twitter API Error:', error.message);
+    logger.error('Twitter API Error:', error.message);
     throw error;
   });
 
   // 验证响应数据
   if (!response || !response.data) {
-    console.error('Twitter API Timeline Error: No response data');
+    logger.error('Twitter API Timeline Error: No response data');
     return null;
   }
 

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
+import { logger } from './logger';
 
 // Create axios client with custom configuration
 const client = axios.create({
@@ -106,12 +107,12 @@ export class DexScreener {
     const response = await client.get<TokenData[]>(
       `https://api.dexscreener.com/tokens/v1/${chainId}/${tokenAddress}`
     ).catch(error => {
-      console.error('DexScreener API Error:', error.message);
+      logger.error('DexScreener API Error:', error.message);
       throw error;
     });
 
     if (!response.data || response.data.length === 0) {
-      throw new Error('No data returned from DexScreener');
+      logger.error('No data returned from DexScreener');
     }
 
     return new TokenInfo(response.data);
