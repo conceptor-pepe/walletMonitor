@@ -2,6 +2,7 @@
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import { logger } from './logger';
+import { initCaTable } from './ca';
 
 // 定义交易数据接口
 interface Transaction {
@@ -23,7 +24,7 @@ interface Wallet {
 }
 
 // 数据库连接实例
-let db: any = null;
+export let db: any = null;
 
 /**
  * 初始化数据库连接
@@ -60,6 +61,8 @@ async function initializeDB() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP -- 记录创建时间
       )
     `);
+
+    await initCaTable()
   }
 }
 

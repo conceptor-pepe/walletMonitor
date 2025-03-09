@@ -7,7 +7,8 @@ import { sendSumMessage } from '../utils/aiSummary';
 import { TELEGRAM_CHANNEL_ID } from '../utils/config';
 import { getNewTransactions, getOtherWalletTransactions } from '../utils/sqlite';
 import dotenv from 'dotenv';
-import { logger } from '../utils/logger.js';
+import { logger } from '../utils/logger';
+import { insertCaRecord, queryCaByAddress } from '../utils/ca';
 
 dotenv.config();
 
@@ -46,21 +47,16 @@ async function checkFilter(tokenAddress: string) {
       // 如果消息发送成功，并且是首次发现该代币，才发送AI总结
       if (tgResponse?.ok === true) {
         const messageId = tgResponse.result.message_id;
-
-        // 检查是否是首次发现该代币的交易
-        const sixHoursAgo = Math.floor(Date.now() / 1000 - 6 * 60 * 60);
-        const previousTxs = await getOtherWalletTransactions(
-          tokenAddress,
-          '',  // 空字符串表示查询所有钱包
-          sixHoursAgo
-        );
+        // 检查是否首次发现该代币
+        const isFirstDiscovery = !(await queryCaByAddress(tokenAddress));
 
         // 如果这是首次发现该代币的交易，发送AI总结
-        if (previousTxs.length <= 1) {
+        if (isFirstDiscovery) {
           await sendSumMessage(tokenInfo, messageId);
+          await insertCaRecord({ address: tokenAddress, isAiSum: true })
         }
 
-        logger.info(`[${getTimeStamp()}] Successfully sent analysis for token ${tokenAddress} to Telegram`);
+        logger.info(`[${getTimeStamp()}] Successfully sent analysis for token ${tokenAddress} to Telegram isFirstDiscover:${isFirstDiscovery}`);
       }
     }
   } catch (error) {
@@ -106,7 +102,7 @@ export async function startMonitor() {
           );
 
           // 如果发现其他钱包的买入记录
-          if (otherWalletTxs.length >= 0) {
+          if (otherWalletTxs.length > 0) {
             console.log(`[${getTimeStamp()}] 检测到多钱包交易代币: ${tokenOutAddress}`);
             // 触发代币分析和消息推送
             await checkFilter(tokenOutAddress);
