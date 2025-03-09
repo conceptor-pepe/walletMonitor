@@ -236,6 +236,34 @@ export async function getRecentTransactions(limit: number = 10) {
   }
 }
 
+
+// 查询指定代币地址的所有交易记录
+const getTxsByTokenAddress = async (tokenAddress: string) => {
+  // 构建 SQL 查询语句
+  const sql = `
+    SELECT 
+      account,           -- 钱包地址
+      token_in_address,  -- 输入代币地址
+      token_in_amount,   -- 输入代币数量
+      token_out_address, -- 输出代币地址
+      token_out_amount,  -- 输出代币数量
+      timestamp         -- 交易时间戳
+    FROM txs 
+    WHERE token_in_address = ? OR token_out_address = ?
+    ORDER BY timestamp ASC
+  `;
+
+  try {
+    // 执行查询并返回结果
+    const txs = await db.all(sql, [tokenAddress, tokenAddress]);
+    return { data: txs }; // 保持与 Supabase 返回格式一致
+  } catch (error) {
+    logger.error('查询代币交易记录时发生错误:', error);
+    throw error;
+  }
+};
+
+
 export {
   initializeDB,
   closeDB,
@@ -245,6 +273,7 @@ export {
   deleteWallet,
   queryTransactions,
   queryWallets,
+  getTxsByTokenAddress,
   Transaction,
   Wallet
 };

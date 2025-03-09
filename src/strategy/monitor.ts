@@ -7,6 +7,7 @@ import { sendSumMessage } from '../utils/aiSummary';
 import { TELEGRAM_CHANNEL_ID } from '../utils/config';
 import { getNewTransactions, getOtherWalletTransactions } from '../utils/sqlite';
 import dotenv from 'dotenv';
+import { logger } from '../utils/logger.js';
 
 dotenv.config();
 
@@ -31,6 +32,7 @@ async function checkFilter(tokenAddress: string) {
 
     // 计算代币交易对的存在时间(天)
     const pairAge = (Date.now() / 1000 - tokenInfo.createdAt) / (60 * 60 * 24);
+    logger.info(`symbol:${tokenInfo.symbol} PairAge:${pairAge} mc:${tokenInfo.marketCap}`)
 
     // 检查代币是否满足年龄和市值条件
     if (pairAge <= MAX_AGE_DAYS && tokenInfo.marketCap >= MIN_MARKET_CAP) {
@@ -41,17 +43,29 @@ async function checkFilter(tokenAddress: string) {
       const message = createMsg(tokenInfo, analysis);
       const tgResponse = await sendTelegramMessage(message, TELEGRAM_CHANNEL_ID);
 
-      // 如果消息发送成功
+      // 如果消息发送成功，并且是首次发现该代币，才发送AI总结
       if (tgResponse?.ok === true) {
         const messageId = tgResponse.result.message_id;
-        // 发送AI总结消息
-        await sendSumMessage(tokenInfo, messageId);
-        console.log(`[${getTimeStamp()}] Successfully sent analysis for token ${tokenAddress} to Telegram`);
+
+        // 检查是否是首次发现该代币的交易
+        const sixHoursAgo = Math.floor(Date.now() / 1000 - 6 * 60 * 60);
+        const previousTxs = await getOtherWalletTransactions(
+          tokenAddress,
+          '',  // 空字符串表示查询所有钱包
+          sixHoursAgo
+        );
+
+        // 如果这是首次发现该代币的交易，发送AI总结
+        if (previousTxs.length <= 1) {
+          await sendSumMessage(tokenInfo, messageId);
+        }
+
+        logger.info(`[${getTimeStamp()}] Successfully sent analysis for token ${tokenAddress} to Telegram`);
       }
     }
   } catch (error) {
     // 记录错误信息
-    console.error(`[${getTimeStamp()}] Error checking token ${tokenAddress}:`, error);
+    logger.error(`[${getTimeStamp()}] Error checking token ${tokenAddress}:`, error);
   }
 }
 

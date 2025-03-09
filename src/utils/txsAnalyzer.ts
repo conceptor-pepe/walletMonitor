@@ -6,6 +6,7 @@ import { USDC_ADDRESS, SOL_ADDRESS } from './swapProcessor';
 import { DexScreener } from './dexscreener';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { RPC_ENDPOINT, SUPABASE_KEY, SUPABASE_URL } from './config';
+import { getTxsByTokenAddress } from './sqlite';
 
 const supabaseUrl = SUPABASE_URL;
 const supabaseKey = SUPABASE_KEY;
@@ -16,13 +17,8 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // 从 Supabase 数据库获取指定代币的交易记录
 async function getTokenTxs(tokenAddress: any) {
   try {
-    // 查询该代币的所有交易记录
-    const { data: txs } = await supabase
-      .from('txs')
-      .select('account, token_in_address, token_in_amount, token_out_address, token_out_amount, timestamp')
-      .or(`token_in_address.eq.${tokenAddress},token_out_address.eq.${tokenAddress}`)
-      .order('timestamp', { ascending: true });
-
+    // 查询该代币的所有交易记
+    const { data: txs } = await getTxsByTokenAddress(tokenAddress)
     if (!txs || txs.length === 0) {
       return {};
     }
@@ -38,7 +34,7 @@ async function getTokenTxs(tokenAddress: any) {
     }
 
     const accountTxs: Record<string, Transaction[]> = {};
-    txs.forEach(tx => {
+    txs.forEach((tx: any) => {
       if (!accountTxs[tx.account]) {
         accountTxs[tx.account] = [];
       }
