@@ -32,7 +32,7 @@ export async function solParser(signature: any) {
   // 检查是否成功且为 SWAP 类型交易
   if (response.data.success && response.data.result) {
     const result = response.data.result;
-    logger.info(JSON.stringify(result, null, 2));
+    // logger.info(JSON.stringify(result, null, 2));
 
     // 查找包含代币交换信息的动作
     const swapAction = result.actions.find((action: any) =>

@@ -155,7 +155,7 @@ export async function getOtherWalletTransactions(
     SELECT * FROM txs 
     WHERE token_out_address = ? 
     AND account != ? 
-    AND timestamp >= ? 
+    AND timestamp > ? 
     LIMIT 1
   `, [tokenAddress, currentAccount, fromTimestamp]);
 }
@@ -212,9 +212,9 @@ async function addTransaction(transaction: {
       transaction.signature
     ]);
 
-    logger.info('交易记录已成功添加到数据库');
+    logger.info(`add tx success out_address:${transaction.token_out_address} account:${transaction.account}`);
   } catch (error) {
-    logger.error('添加交易记录时发生错误:', error);
+    logger.error('add tx wrong:', error);
     throw error;
   }
 }
@@ -266,6 +266,31 @@ const getTxsByTokenAddress = async (tokenAddress: string) => {
   }
 };
 
+/**
+ * 查询账户之前是否购买过指定代币
+ * @param {string} account - 账户地址
+ * @param {string} tokenAddress - 代币地址
+ * @returns {Promise<Array>} - 返回之前的购买记录,如果没有记录则返回空数组[]
+ */
+async function getPreviousPurchases(account: string, tokenAddress: string, lastCheckTimestamp: number) {
+  // 查询数据库中该账户买入该代币的历史记录
+  const query = `
+    SELECT * FROM txs 
+    WHERE account = ? AND token_out_address = ? AND timestamp < ?
+    ORDER BY timestamp DESC
+  `;
+  try {
+    // db.all() 如果没有匹配记录会返回空数组[]
+    const result = await db.all(query, [account, tokenAddress, lastCheckTimestamp]);
+    logger.info(`getPreviousPurchases:${JSON.stringify(result)}`)
+    return result;
+  } catch (error) {
+    logger.error('查询账户购买记录时发生错误:', error);
+    return []; // 发生错误时返回空数组
+  }
+}
+
+
 
 export {
   initializeDB,
@@ -277,6 +302,7 @@ export {
   queryTransactions,
   queryWallets,
   getTxsByTokenAddress,
+  getPreviousPurchases,
   Transaction,
   Wallet
 };

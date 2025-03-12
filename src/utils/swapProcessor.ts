@@ -83,6 +83,6 @@ export function processSwapData(webhookData: any): SwapData {
   processedData.timestamp = webhookData.timestamp;    // 交易时间戳
   processedData.description = webhookData.description; // 交易描述
 
-  logger.info(`processedData is:${JSON.stringify(processedData)}`)
+  // logger.info(`processedData is:${JSON.stringify(processedData)}`)
   return processedData;
 }

@@ -36,7 +36,7 @@ export async function insertCaRecord(
   record: Partial<CaRecord>
 ): Promise<void> {
   const sql = `
-    INSERT INTO ca_records (address, isAiSum, warningTime)
+    INSERT OR REPLACE INTO ca_records (address, isAiSum, warningTime)
     VALUES (?, ?, ?)
   `;
 
@@ -44,12 +44,18 @@ export async function insertCaRecord(
   const warningTime = new Date().toISOString();
   const isAiSum = record.isAiSum ? 1 : 0;
 
-  await db.run(sql, [
-    record.address,
-    isAiSum,
-    warningTime
-  ]);
+  try {
+    await db.run(sql, [
+      record.address,
+      isAiSum,
+      warningTime
+    ]);
+  } catch (error) {
+    console.error('插入记录时发生错误:', error);
+    throw error;
+  }
 }
+
 /**
  * 根据地址查询记录是否存在
  * @param address - 要查询的地址

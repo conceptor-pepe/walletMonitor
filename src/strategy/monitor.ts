@@ -5,7 +5,7 @@ import { analyzeTokenTxs } from '../utils/txsAnalyzer';
 import { createMsg } from './messageTemplate';
 import { sendSumMessage } from '../utils/aiSummary';
 import { TELEGRAM_CHANNEL_ID } from '../utils/config';
-import { getNewTransactions, getOtherWalletTransactions } from '../utils/sqlite';
+import { getNewTransactions, getOtherWalletTransactions, getPreviousPurchases } from '../utils/sqlite';
 import dotenv from 'dotenv';
 import { logger } from '../utils/logger';
 import { insertCaRecord, queryCaByAddress } from '../utils/ca';
@@ -66,16 +66,17 @@ async function checkFilter(tokenAddress: string) {
 }
 
 /**
- * 监控SQLite交易表的变化，分析多钱包买入行为
+ * 监控SQLite交易表的变化，分析钱包买入行为
  * 主要功能:
  * 1. 定期轮询SQLite数据库检查新交易
- * 2. 分析是否有多个钱包在6小时内买入同一代币 //目前改为单个钱包就告警
- * 3. 符合条件时触发代币分析和消息推送
+ * 2. 当账户首次买入代币或其他账户买入同一代币时触发告警
+ * 3. 每个监控会话中，相同代币只告警一次
  */
 export async function startMonitor() {
-
   // 记录上次检查的时间戳
   let lastCheckTimestamp = Math.floor(Date.now() / 1000);
+  // 存储已经告警的代币地址集合
+  const alertedTokens = new Set<string>();
 
   // 每5秒检查一次新交易
   setInterval(async () => {
@@ -84,29 +85,36 @@ export async function startMonitor() {
       const newTxs = await getNewTransactions(lastCheckTimestamp);
 
       // 处理每条新交易
-      for (const newTx of newTxs) {
-        const tokenOutAddress = newTx.token_out_address;  // 买入的代币地址
-        const currentAccount = newTx.account;             // 当前交易账户
-        const currentTimestamp = newTx.timestamp;         // 交易时间戳
+      for (const tx of newTxs) {
+        const {
+          token_out_address: tokenOutAddress,  // 买入的代币地址
+          account: currentAccount,             // 当前交易账户
+          timestamp: currentTimestamp          // 交易时间戳
+        } = tx;
 
         // 检查是否为代币买入交易(排除SOL和USDC)
-        if (tokenOutAddress !== SOL_ADDRESS && tokenOutAddress !== USDC_ADDRESS) {
-          // 计算6小时前的时间戳
-          const sixHoursAgo = Math.floor(currentTimestamp - 6 * 60 * 60);
+        if (tokenOutAddress === SOL_ADDRESS || tokenOutAddress === USDC_ADDRESS) {
+          continue;
+        }
 
-          // 查询6小时内是否有其他钱包买入同一代币
-          const otherWalletTxs = await getOtherWalletTransactions(
-            tokenOutAddress,
-            currentAccount,
-            sixHoursAgo
-          );
+        // 跳过已告警的代币
+        if (alertedTokens.has(tokenOutAddress)) {
+          logger.info(`address:[${tokenOutAddress} has alerted]`)
+          continue;
+        }
 
-          // 如果发现其他钱包的买入记录
-          if (otherWalletTxs.length > 0) {
-            console.log(`[${getTimeStamp()}] 检测到多钱包交易代币: ${tokenOutAddress}`);
-            // 触发代币分析和消息推送
-            await checkFilter(tokenOutAddress);
-          }
+        // 检查告警条件
+        const shouldAlert = await checkAlertConditions(currentAccount, tokenOutAddress, lastCheckTimestamp);
+
+        if (shouldAlert.alert) {
+          logger.info(`[${getTimeStamp()}] 检测到告警条件: ${shouldAlert.reason} - 代币: ${tokenOutAddress}, 账户: ${currentAccount}`);
+
+          // 触发代币分析和消息推送
+          await checkFilter(tokenOutAddress);
+          // 将代币加入已告警集合
+          alertedTokens.add(tokenOutAddress);
+        } else {
+          logger.info(`address:[${tokenOutAddress} alert:false]`)
         }
       }
 
@@ -114,13 +122,56 @@ export async function startMonitor() {
       if (newTxs.length > 0) {
         lastCheckTimestamp = Math.max(...newTxs.map((tx: any) => tx.timestamp));
       }
-
     } catch (error) {
-      console.error(`[${getTimeStamp()}] 监控程序错误:`, error);
+      logger.error(`[${getTimeStamp()}] 监控程序错误:`, error);
     }
   }, 5000); // 5秒轮询间隔
 
-  console.log(`[${getTimeStamp()}] 交易监控已启动...`);
+  logger.info(`[${getTimeStamp()}] 交易监控已启动...`);
+}
+
+/**
+ * 检查是否需要触发告警
+ * @param currentAccount - 当前交易账户
+ * @param tokenAddress - 代币地址
+ * @param lastCheckTimestamp - 上次检查时间戳
+ * @returns {Promise<{alert: boolean, reason: string}>} - 返回是否需要告警及原因
+ */
+async function checkAlertConditions(
+  currentAccount: string,
+  tokenAddress: string,
+  lastCheckTimestamp: number
+): Promise<{ alert: boolean, reason: string }> {
+  // 检查账户历史购买记录
+  const previousPurchases = await getPreviousPurchases(currentAccount, tokenAddress, lastCheckTimestamp);
+
+  // 如果是首次购买
+  if (previousPurchases.length === 0) {
+    return {
+      alert: true,
+      reason: '账户首次买入该代币'
+    };
+  }
+
+  // 检查其他账户是否在最近时间窗口内购买过该代币
+  const otherAccountPurchases = await getOtherWalletTransactions(
+    tokenAddress,
+    currentAccount,
+    lastCheckTimestamp
+  );
+
+  logger.info(`otherAccountPurchases:${JSON.stringify(otherAccountPurchases)}`)
+  if (otherAccountPurchases.length > 0) {
+    return {
+      alert: true,
+      reason: '其他账户已购买过该代币'
+    };
+  }
+
+  return {
+    alert: false,
+    reason: ''
+  };
 }
 
 // 启动监控
