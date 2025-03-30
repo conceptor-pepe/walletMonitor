@@ -3,8 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 import { processSwapData } from './swapProcessor';
 import { solParser } from './txParser';
 import { HELIUS_API_KEY, SUPABASE_KEY, SUPABASE_URL } from './config';
-import { addTransaction } from './sqlite';
+import { addTransaction, getPreviousPurchases } from './sqlite';
 import { logger } from './logger';
+import { trigerMonitor } from '../strategy/monitor';
+import { accountAddresses } from '../scripts/heliusSetup';
 
 // 初始化 Supabase 客户端
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -18,6 +20,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
  * 4. 存储交易数据到数据库
  */
 export const handleWebhookRequest = async (req: any, res: any) => {
+  // logger.info('handleWebhookRequest receive some request')
   try {
 
     // 验证请求方法
@@ -73,15 +76,30 @@ async function processWebhookData(data: any) {
     throw new Error('No swap data found');
   }
 
+  if (!accountAddresses.includes(processedData.account)) {
+    logger.info(`processWebhookData the account not in wallets:${processedData.account}`)
+    return
+  }
+
   // 将处理后的数据存储到 SQLite 数据库
   try {
+    const preRecord = await getPreviousPurchases(processedData.account, processedData.token_out_address)
+    const isFirstTx = preRecord.length > 0 ? false : true
+
     await addTransaction({
       ...processedData,
       signature: txData.signature
     });
 
+    if (isFirstTx) {
+      await trigerMonitor(processedData.token_out_address)
+    }
+
+    const type = txData.events?.swap ? 'helius' : 'shyft'
     // 记录成功信息
-    logger.info('Successfully processed and stored with parser:', txData.events?.swap ? 'helius' : 'shyft');
+    logger.info(`Successfully processed and stored with parser:[${type}] isFirstTx:${isFirstTx}`);
+
+
   } catch (error) {
     logger.error('Error inserting into SQLite:', error);
     throw error;

@@ -1,6 +1,7 @@
 import sqlite3 from 'sqlite3';
 import { Database } from 'sqlite';
 import { db } from './sqlite';
+import { logger } from './logger';
 
 // 定义记录类型
 interface CaRecord {
@@ -28,15 +29,20 @@ export async function initCaTable(): Promise<void> {
 }
 
 /**
- * 插入新记录
- * @param db - 数据库连接
+ * 插入新记录，如果记录已存在则不插入
  * @param record - 要插入的记录
  */
 export async function insertCaRecord(
   record: Partial<CaRecord>
 ): Promise<void> {
+  // 先检查记录是否存在
+  const exists = await queryCaByAddress(record.address!);
+  if (exists) {
+    return; // 如果记录已存在，直接返回
+  }
+
   const sql = `
-    INSERT OR REPLACE INTO ca_records (address, isAiSum, warningTime)
+    INSERT INTO ca_records (address, isAiSum, warningTime)
     VALUES (?, ?, ?)
   `;
 
@@ -70,6 +76,7 @@ export async function queryCaByAddress(address: string): Promise<boolean> {
 
   try {
     const result = await db.get(sql, [address]);
+    logger.info(`queryCaByAddress: ${JSON.stringify(result)}`)
     return !!result; // 如果 result 存在，返回 true；否则返回 false
   } catch (error) {
     console.error('查询记录时发生错误:', error);

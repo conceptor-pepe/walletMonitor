@@ -3,6 +3,7 @@ import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import { logger } from './logger';
 import { initCaTable } from './ca';
+import { getWalletName } from '../scripts/heliusSetup';
 
 // 定义交易数据接口
 interface Transaction {
@@ -212,7 +213,8 @@ async function addTransaction(transaction: {
       transaction.signature
     ]);
 
-    logger.info(`add tx success out_address:${transaction.token_out_address} account:${transaction.account}`);
+    const name = getWalletName(transaction.account)
+    logger.info(`add tx success out_address:${transaction.token_out_address} wallet:${transaction.account} name:${name}`);
   } catch (error) {
     logger.error('add tx wrong:', error);
     throw error;
@@ -272,17 +274,16 @@ const getTxsByTokenAddress = async (tokenAddress: string) => {
  * @param {string} tokenAddress - 代币地址
  * @returns {Promise<Array>} - 返回之前的购买记录,如果没有记录则返回空数组[]
  */
-async function getPreviousPurchases(account: string, tokenAddress: string, lastCheckTimestamp: number) {
+async function getPreviousPurchases(account: string, tokenAddress: string) {
   // 查询数据库中该账户买入该代币的历史记录
   const query = `
     SELECT * FROM txs 
-    WHERE account = ? AND token_out_address = ? AND timestamp < ?
-    ORDER BY timestamp DESC
+    WHERE account = ? AND token_out_address = ? 
   `;
   try {
     // db.all() 如果没有匹配记录会返回空数组[]
-    const result = await db.all(query, [account, tokenAddress, lastCheckTimestamp]);
-    logger.info(`getPreviousPurchases:${JSON.stringify(result)}`)
+    const result = await db.all(query, [account, tokenAddress]);
+    // logger.info(`getPreviousPurchases:${JSON.stringify(result)}`)
     return result;
   } catch (error) {
     logger.error('查询账户购买记录时发生错误:', error);

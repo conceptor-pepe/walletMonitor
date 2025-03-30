@@ -6,7 +6,6 @@ import { setupSwapWebhook } from './scripts/heliusSetup';
 const app = express();
 // 导入 startMonitor 函数
 import { handleWebhookRequest } from './utils/route';
-import { startMonitor } from './strategy/monitor';
 import { initializeDB } from './utils/sqlite';
 
 
@@ -40,8 +39,7 @@ async function startServer() {
       console.log(`Server is running on port ${PORT}`);
     });
 
-    // 启动监控
-    await startMonitor();
+
     console.log('Monitor started successfully');
 
   } catch (err) {

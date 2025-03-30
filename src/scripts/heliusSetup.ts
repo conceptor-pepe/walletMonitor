@@ -3,6 +3,7 @@ import { Helius } from 'helius-sdk';
 import { TransactionType, WebhookType } from 'helius-sdk';
 import { createClient } from '@supabase/supabase-js';
 import { HELIUS_API_KEY, SUPABASE_KEY, SUPABASE_URL, WEBHOOK_URL } from '../utils/config';
+import { logger } from '../utils/logger';
 
 // 加载环境变量配置
 dotenv.config();
@@ -19,6 +20,18 @@ if (!HELIUS_API_KEY) {
 
 // 创建 Helius 实例
 const helius = new Helius(HELIUS_API_KEY);
+// 定义全局变量存储钱包信息
+export let wallets: Map<string, string> = new Map();
+export let accountAddresses: string[] = []
+
+/**
+ * 根据钱包地址获取名称
+ * @param address 钱包地址
+ * @returns 钱包名称,如果不存在返回地址本身
+ */
+export const getWalletName = (address: string): string => {
+  return wallets.get(address) || '';
+}
 
 /**
  * 设置 SWAP 类型的 Webhook
@@ -30,18 +43,27 @@ const helius = new Helius(HELIUS_API_KEY);
 export const setupSwapWebhook = async () => {
   try {
     // 从 Supabase 数据库获取钱包地址
-    const { data, error } = await supabase.from('wallets').select('address');
+    const { data, error } = await supabase.from('wallets').select('*');
     if (error) {
       throw new Error('Failed to fetch wallet addresses from Supabase');
     }
 
-    // 提取并过滤有效的钱包地址
-    const accountAddresses = data.map(row => row.address).filter(addr => addr);
+    // 遍历并打印每个钱包地址和名称
+    data.forEach((row: any) => {
+      logger.info(`setupSwapWebhook address:${row.address} name:${row.name}`)
+      wallets.set(row.address, row.name)
+    });
 
+    // 提取并过滤有效的钱包地址
+    accountAddresses = data.map(row => row.address).filter(addr => addr);
+    logger.info(`accountAddresses:${JSON.stringify(accountAddresses)}`)
     // 检查是否存在有效的钱包地址
     if (accountAddresses.length === 0) {
       throw new Error('No valid wallet addresses found in wallets.txt.');
     }
+
+
+    // logger.info(`setupSwapWebhook address :${JSON.stringify(accountAddresses)}`)
 
     // 创建 Webhook 配置对象
     const webhookConfig = {

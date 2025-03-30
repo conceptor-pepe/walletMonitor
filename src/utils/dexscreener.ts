@@ -89,6 +89,8 @@ export class TokenInfo {
 
     // Price changes
     this.changeH6 = pair.priceChange?.h6;
+    logger.info(`dexscreen token name:${this.name} address:${this.address} mc:${this.marketCap} priceUSD:${this.priceUSD} lq:${this.liquidity}`)
+
 
     // Website and social media info
     if (pair.info) {
